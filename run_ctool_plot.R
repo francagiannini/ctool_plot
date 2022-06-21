@@ -8,7 +8,7 @@ run_in_folder <- function(i) {
 # Make a folder with scenario ID name
 folder_name <-
   paste(
-    "C:\\Users\\au710823\\Dropbox\\Franca\\Aarhus\\ctool_plot\\",
+    "C:\\Users\\au710823\\Dropbox\\Franca\\Aarhus\\ctool_plot_mond\\",
     i[[1]],
     sep = ""
   )
@@ -88,4 +88,5 @@ aver_plot <- readRDS("aver_plot.RDS")
 lapply(aver_plot, run_in_folder)
 
 
-setwd("C:\\Users\\au710823\\OneDrive - Aarhus universitet\\ctool1st2022")
+setwd(
+  "C:\\Users\\au710823\\OneDrive - Aarhus universitet\\ctool1st2022\\ctool_plot\\data\\")

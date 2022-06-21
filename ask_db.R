@@ -14,6 +14,18 @@ sb_ask |>
   geom_smooth(se=FALSE)+
   theme_bw()
 
+GY<-lme4::lmer(
+  Grain_DM~1+year+as.factor(Straw_Rate)+(1|as.factor(Block))
+  ,na.action=na.omit
+  ,REML=T
+  #,control=lmerControl(optimizer="bobyqa")
+  ,data=sb_ask)
+
+summary(GY)
+
+anova(GY)
+
+
 # Meteorological data ----
 
 daily_Ask_2010to2013 <-

@@ -2,16 +2,21 @@ library(tidyverse)
 
 plot_est <- read.table("plot_est.txt", sep = "\t", header= T) 
 
-scn_plot <- expand.grid("t.Init" =c("Fixed", "estimated"),
-                        "t.HI"=c("HI.calc", "HI.st"),
-                        "t.Ccont"=c("ccont.st", "ccont.bent"),
-                        "t.Eps" =c("Eps.st", "Eps.are"),
-                        "plot"=unique(plot_est$Sample_ID)#, 
+scn_plot <- expand.grid(
+  "InitSoilC"= c('ave','st0','st4','opt'),
+  "Allo"= c("Fixed", "NotFixed"),
+  "t.Init" =c("Fixed", "estimated"),
+  "t.HI"=c("HI.calc", "HI.st"),
+  "t.Ccont"=c("ccont.st", "ccont.bent"),
+  "t.Eps" =c("Eps.st", "Eps.are"),
+  "plot"=unique(plot_est$Sample_ID)#, 
                         #"year"=unique(plot_est$year)#,
                         #"Allo"= c("Allo.yes","Allo.est")
-) |> mutate(id = row_number(),
+) |> filter(Allo=='NotFixed' | 
+           Allo=='Fixed' & t.Init=='Fixed' & t.HI=='HI.st'& t.Eps=='Eps.are'& t.Ccont=='ccont.st')|> 
+  mutate(id = row_number(),
             scn_name = 
-              paste(t.Init,t.HI,t.Ccont,t.Eps,as.factor(plot), sep = "_"))
+              paste(InitSoilC, Allo,t.Init,t.HI,t.Ccont,t.Eps,as.factor(plot), sep = "_"))
 
 
 plot_param <- merge(x=scn_plot, y=plot_est, by.x = 'plot', by.y = 'Sample_ID')|>
@@ -51,20 +56,26 @@ plot_param <- merge(x=scn_plot, y=plot_est, by.x = 'plot', by.y = 'Sample_ID')|>
              'SpringWheat' = '0.25',
              'WinterWheat' = '0.25')),
     
-    'Initial C(t/ha)' = as.numeric(
-      recode(plot,
-            "201"="81.0",	"206"="78.5",	"208"="80.0",
-            "301"="78.5",	"306"="73.0",	"308"="76.0",
-            "601"="78.0",	"606"="80.5",	"608"="78.5",
-            "701"="75.0",	"706"="76.5",	"708"="75.5"
-                               )
-      ),
-    'C/N' = as.numeric(recode(plot,
-                                          "201"="11.34572034",	"206"="11.0388871",	"208"="11.25273805",	
-                                          "301"="11.67764513",	"306"="11.41472226",	"308"="10.94947204",	
-                                          "601"="11.2681818",	"606"="11.36176364",	"608"="11.4498992",	
-                                          "701"="11.24119399",	"706"="11.11457574",	"708"="10.97455757"
-                              )),
+    'Initial C(t/ha)' = as.numeric(as.character(
+      recode(InitSoilC,
+        'ave' = '112.5',
+        'st0' = '102.7',
+        'st4' = '106.1',
+        'opt'='93')))
+    ,
+      #       "201"="86.2",	"206"="83.4",	"208"="85.1",
+      #       "301"="83.5",	"306"="77.7",	"308"="80.9",
+      #       "601"="83.0",	"606"="85.6",	"608"="83.5",
+      #       "701"="79.8",	"706"="81.4",	"708"="80.3"
+       
+    "C/N" = 11.19048
+      # as.numeric(recode(plot,
+      #     "201"="11.34572034",	"206"="11.0388871",	"208"="11.25273805",	
+      #     "301"="11.67764513",	"306"="11.41472226",	"308"="10.94947204",	
+      #     "601"="11.2681818",	"606"="11.36176364",	"608"="11.4498992",	
+      #     "701"="11.24119399",	"706"="11.11457574",	"708"="10.97455757"
+      #                         ))
+    ,
     "clayfraction" = as.numeric(recode(plot,
                                        "201"="0.117",	"206"="0.115",	"208"="0.125",	
                                        "301"="0.110",	"306"="0.120",	"308"="0.125",	
@@ -76,29 +87,30 @@ plot_param <- merge(x=scn_plot, y=plot_est, by.x = 'plot', by.y = 'Sample_ID')|>
 
 
 plot_Cinp <- plot_param |> mutate(
-  Ctop =
-    Straw_C + Eps * (Fre / ((1 - Fre) * HI) * ((Straw_DM + Grain_DM) * ccont)),# Cres + Cbelow * ep
+  Ctop =ifelse(Allo=='NotFixed',
+               Straw_C + Eps * (Fre / ((1 - Fre) * HI) * ((Straw_DM + Grain_DM) * ccont)),
+               2.28),# Cres + Cbelow * ep
   
-  Csub =
+  Csub = ifelse(Allo=='NotFixed',
     (1 - Eps) * (Fre /(( 1 - Fre ) * HI) * ((Straw_DM + Grain_DM) * ccont)),
-  
+    0.12), 
   Cman = Slurry_C
   
 )
 
+summary(plot_Cinp)
 #check
 table(plot_Cinp$year)==nrow(scn_plot)
 table(plot_Cinp$id)==length(unique(plot_Cinp$year))
 
-plot_Cinp |> ggplot(aes(x=year,y=Straw_DM, col=t.Init))+
+plot_Cinp |> ggplot(aes(x=year,y=Ctop, col=interaction(t.Init,Allo)))+
   geom_point()+
-  geom_smooth()+
+  #geom_smooth()+
   theme_bw()
-
 
 plot_Cinp |> 
   pivot_longer(cols = c(Ctop,Csub), names_to = "Variable") |> 
-  group_by(year,Variable,t.Init,t.HI,t.Ccont,t.Eps,plot) |> 
+  group_by(year,Variable,t.Init,t.HI,t.Ccont,t.Eps,plot,Allo, InitSoilC) |> 
   summarise(mean = mean(value),
             sdDM=sd(value)#/sqrt(n())
   ) |> 
@@ -124,113 +136,4 @@ Cinp_spl <- plot_Cinp |>
 
 saveRDS(Cinp_spl, "Cinp_spl.RDS")
 
-# i=Cinp_spl[[1]]
-# 
-# aver <- list(
-#   #ID
-#   unique(i$scn_name),
-#   #data
-#      as.data.frame(i),
-#   #input
-#   my_input <- c(
-#           c(  "[Parameters]	
-#       PLoweLayer",	paste0(0.312)),
-#           "
-#       offset",	paste(0),
-#           "
-#       depth", paste(100),
-#           "
-#       PupperLayer",	paste(0.48),
-#           "
-#       Initial pMC(%)", paste(0),
-#           "
-#       Initial C(t/ha)", paste(i$'Initial C(t/ha)'),
-#           "
-#       C/N", 	paste(i$'C/N'),
-#           "
-#       Amended C", paste(0),
-#           "
-#       Crop
-#       [HUM]
-#       HUMdecompositionrate", 	paste(0.0028),
-#           "
-#       [FOM]
-#       FOMdecompositionrate", paste(0.12),
-#           "
-#       clayfraction", paste(i$clayfraction),
-#           "
-#       tF", paste(0.003),
-#           "
-#       [ROM]
-#       ROMfraction", paste(0.012),
-#           "
-#       ROMdecompositionrate", 	paste(3.858e-05),
-#           "
-#       Manure
-#       [HUM]	
-#       HUMdecompositionrate", 	paste(0.0028),
-#           "
-#       HumFraction", paste(0.192),
-#           "
-#       [FOM]
-#       FOMdecompositionrate", paste(0.12),
-#           "
-#       clayfraction", paste(i$clayfraction),
-#           "
-#       tF", paste(0),
-#           "
-#       [ROM]
-#       ROMfraction", paste(0),
-#           "
-#       ROMdecompositionrate", 	paste(0),
-#           "
-#       CropC14
-#       [HUM]	
-#       HUMdecompositionrate", 	paste(0.0028),
-#           "
-#       [FOM]
-#       FOMdecompositionrate", paste(0),
-#           "
-#       clayfraction", paste(i$clayfraction),
-#           "
-#       tF", paste(0),
-#           "
-#       [ROM]
-#       ROMfraction", paste(0),
-#           "
-#       ROMdecompositionrate", 	paste(0),
-#           "
-#       decay rate", 	paste(i$'CropC14_decay rate'),
-#           "
-#       ManureC14
-#       [HUM]	
-#       HUMdecompositionrate", 	paste(0.0028),
-#           "
-#       HumFraction", paste(0.192),
-#           "
-#       [FOM]
-#       FOMdecompositionrate", paste(0),
-#           "
-#       clayfraction", paste(i$clayfraction),
-#           "
-#       tF", paste(0),
-#           "
-#       [ROM]
-#       ROMfraction", paste(0),
-#           "
-#       ROMdecompositionrate", 	paste(0),
-#           "
-#       decay rate", 	paste(0),
-#           "
-#       [FOM]
-#       FOMfractionPlantTopLayer",paste(0.032)	,
-#           "
-#       FOMfractionPlantLowerLayer",	paste(0.003),
-#           "
-#       FOMfractionPlantTopLayerC14",	paste(0.032),
-#           "
-#       FOMfractionPlantLowerLayerC14",	paste(0.003),
-#           "
-#       [end] ")
-#   )
-#   
+

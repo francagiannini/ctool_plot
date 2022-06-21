@@ -1,5 +1,5 @@
 
-Cinp_spl <- readRDS("Cinp_spl.RDS")
+Cinp_spl <- readRDS("data/Cinp_spl.RDS")
 
 #i=Cinp_spl[[1]]
 
@@ -21,7 +21,7 @@ data_build_plot <- function(i){
   ########## data writing input------  
   my_input <- c(
     c(  "[Parameters]	
-      PLoweLayer",	paste0(0.312)),
+        PLoweLayer",	paste0(0.312)),
     "
       offset",	paste(0),
     "
